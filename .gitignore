@@ -2,7 +2,6 @@
 GenreModel.pkl
 tfidf.pkl
 label_encoder.pkl
-diabetes_meta.json
 
 # ── Generated Plot Files ──
 eda_plots.png
@@ -22,26 +21,5 @@ env/
 .venv/
 ENV/
 
-# ── IDE / Editor ──
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
 
-# ── OS Files ──
-.DS_Store
-Thumbs.db
-desktop.ini
 
-# ── Jupyter Notebooks (if any) ──
-.ipynb_checkpoints/
-*.ipynb
-
-# ── Logs ──
-*.log
-logs/
-
-# ── Distribution / Build ──
-dist/
-build/
-*.egg-info/
