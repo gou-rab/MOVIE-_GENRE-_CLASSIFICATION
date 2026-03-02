@@ -2,6 +2,7 @@
 
 An NLP Machine Learning web app that predicts the **genre of a movie** from its plot summary. Built with **TF-IDF vectorization** and compares **3 classifiers** (Logistic Regression, Naive Bayes, Linear SVM), served via **Flask** with a cinematic dark-gold themed frontend.
 
+ 🎬 Preview 
 <img width="1879" height="956" alt="Image" src="https://github.com/user-attachments/assets/53452b94-2637-4050-a29f-d97e1b7b31ae" />
 ---
 
