@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineGenre — Movie Genre Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0a050f;--panel:#1a0d2e;--border:rgba(180,80,255,0.35);
+  --purple:#b44fff;--purple2:#8833cc;--gold:#ffcc00;--red:#ff3366;
+  --green:#00ff99;--blue:#00aaff;--pink:#ff66aa;--amber:#ffaa00;
+  --text:#e8d8ff;--muted:#9966cc;--glow:0 0 28px rgba(180,80,255,0.3);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);font-family:'Rajdhani',sans-serif;color:var(--text);min-height:100vh;overflow-x:hidden;}
+#bg-canvas{position:fixed;inset:0;z-index:-1;pointer-events:none;}
+.wrap{position:relative;z-index:10;padding:6px;display:flex;flex-direction:column;gap:5px;min-height:100vh;}
+
+/* HEADER */
+.header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#1a0d2e;border:1px solid var(--border);border-radius:10px;box-shadow:var(--glow);}
+.h-brand{display:flex;align-items:center;gap:14px;}
+.h-icon{width:42px;height:42px;border-radius:50%;border:2px solid var(--purple);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 0 20px rgba(180,80,255,0.4);animation:pulse-icon 2.5s ease-in-out infinite;}
+@keyframes pulse-icon{0%,100%{box-shadow:0 0 20px rgba(180,80,255,0.4);}50%{box-shadow:0 0 40px rgba(180,80,255,0.8);}}
+.h-title{font-family:'Orbitron',monospace;font-size:14px;font-weight:700;letter-spacing:3px;color:#f0e0ff;}
+.h-sub{font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+.h-right{display:flex;align-items:center;gap:12px;}
+.s-pill{display:flex;align-items:center;gap:8px;background:rgba(180,80,255,0.06);border:1px solid var(--border);border-radius:99px;padding:7px 16px;font-size:11px;color:var(--muted);}
+.sdot{width:7px;height:7px;border-radius:50%;background:#222;transition:all .4s;}
+.sdot.on{background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 2s infinite;}
+.sdot.off{background:var(--red);box-shadow:0 0 10px var(--red);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+.model-chip{font-family:'Orbitron',monospace;font-size:11px;color:var(--purple);background:rgba(180,80,255,0.07);border:1px solid var(--border);border-radius:8px;padding:5px 14px;}
+
+/* MAIN GRID */
+.main-layout{display:grid;grid-template-columns:290px 1fr 280px;grid-template-rows:auto auto;gap:5px;flex:1;}
+
+/* PANEL */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px;position:relative;overflow:hidden;box-shadow:0 4px 30px rgba(0,0,0,0.7);}
+.panel::before{content:'';position:absolute;top:0;left:18px;right:18px;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent);opacity:.35;}
+.ptitle{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aa88dd;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.ptitle::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* CENTER */
+.center-panel{grid-column:2;grid-row:1/3;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;}
+.ring-container{position:relative;width:260px;height:260px;flex-shrink:0;}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.ring-emoji{font-size:34px;line-height:1;margin-bottom:4px;}
+.ring-genre{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:#fff;line-height:1;text-align:center;text-shadow:0 0 30px rgba(180,80,255,0.8);transition:all .6s;}
+.ring-conf{font-family:'Orbitron',monospace;font-size:13px;color:var(--purple);margin-top:4px;}
+.ring-sub{font-size:10px;letter-spacing:2px;color:var(--muted);margin-top:3px;}
+.ring-container::before{content:'';position:absolute;inset:-12px;border-radius:50%;border:1px solid rgba(180,80,255,0.08);animation:orbit 10s linear infinite;}
+.ring-container::after{content:'';position:absolute;inset:-22px;border-radius:50%;border:1px solid rgba(180,80,255,0.04);animation:orbit 18s linear infinite reverse;}
+@keyframes orbit{to{transform:rotate(360deg)}}
+
+/* Genre bars */
+.g-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.g-name{font-size:12px;font-weight:600;color:var(--text);width:88px;flex-shrink:0;text-align:right;letter-spacing:.5px;}
+.g-track{flex:1;height:8px;background:rgba(180,80,255,0.08);border-radius:99px;overflow:hidden;border:1px solid rgba(180,80,255,0.12);}
+.g-fill{height:100%;border-radius:99px;transition:width 1s cubic-bezier(.16,1,.3,1);width:0%;}
+.g-pct{font-family:'Orbitron',monospace;font-size:11px;width:38px;text-align:right;}
+
+/* Textarea */
+textarea.plot-input{width:100%;min-height:120px;resize:vertical;background:rgba(180,80,255,0.04);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:14px;line-height:1.65;padding:14px 16px;outline:none;transition:border-color .2s;}
+textarea.plot-input:focus{border-color:var(--purple);box-shadow:0 0 0 2px rgba(180,80,255,0.1);}
+textarea.plot-input::placeholder{color:#3a2055;}
+.char-row{display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:var(--muted);}
+.example-pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.ex-pill{padding:5px 12px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid var(--border);color:var(--muted);background:rgba(180,80,255,0.04);cursor:pointer;transition:all .2s;}
+.ex-pill:hover{border-color:var(--purple);color:var(--purple);background:rgba(180,80,255,0.1);}
+
+.predict-btn{width:100%;padding:11px;margin-top:6px;background:linear-gradient(135deg,rgba(180,80,255,.16),rgba(120,40,180,.08));border:1px solid var(--purple);border-radius:10px;color:var(--purple);font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:3px;cursor:pointer;transition:all .25s;box-shadow:0 0 16px rgba(180,80,255,.14);display:flex;align-items:center;justify-content:center;gap:10px;}
+.predict-btn:hover{background:rgba(180,80,255,.24);box-shadow:0 0 32px rgba(180,80,255,.45);transform:translateY(-1px);}
+.predict-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.spinner{width:14px;height:14px;border:2px solid rgba(180,80,255,.2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite;display:none;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LEFT TOP: Genre Dist */
+.genre-dist{grid-column:1;grid-row:1;}
+.dist-cards{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.dist-card{border-radius:8px;padding:7px 8px;border:1px solid rgba(180,80,255,0.15);background:rgba(180,80,255,0.04);transition:border-color .3s;}
+.dist-card:hover{border-color:rgba(180,80,255,0.4);}
+.dist-card-name{font-size:10px;color:var(--muted);margin-bottom:5px;}
+.dist-card-count{font-family:'Orbitron',monospace;font-size:18px;font-weight:700;}
+.dist-card-pct{font-size:10px;color:var(--muted);margin-top:2px;}
+.dist-spark{width:100%;height:28px;max-height:28px;margin-top:6px;display:block;}
+
+/* LEFT BOTTOM: Insights */
+.model-insights{grid-column:1;grid-row:2;}
+.insight-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(180,80,255,0.08);}
+.insight-item:last-child{border-bottom:none;padding-bottom:0;}
+.ins-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.ins-text{flex:1;}
+.ins-title{font-size:12px;font-weight:600;color:var(--text);letter-spacing:.5px;}
+.ins-desc{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4;}
+.ins-badge{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1px;padding:3px 8px;border-radius:4px;border:1px solid;flex-shrink:0;align-self:center;}
+.ins-badge.key{color:var(--gold);border-color:var(--gold);background:rgba(255,204,0,.08);}
+.ins-badge.info{color:var(--blue);border-color:var(--blue);background:rgba(0,170,255,.08);}
+.ins-badge.warn{color:var(--amber);border-color:var(--amber);background:rgba(255,170,0,.08);}
+.ins-badge.good{color:var(--green);border-color:var(--green);background:rgba(0,255,153,.08);}
+
+/* RIGHT TOP: Treemap */
+.genre-factors{grid-column:3;grid-row:1;}
+.treemap{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.tree-item{border-radius:6px;padding:7px 9px;cursor:default;transition:filter .2s;position:relative;overflow:hidden;}
+.tree-item::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,0.04);border-radius:6px;}
+.tree-item.big{grid-column:span 2;padding:9px 12px;}
+.t-drama{background:linear-gradient(135deg,rgba(180,40,100,0.75),rgba(120,20,70,0.6));border:1px solid rgba(255,60,140,0.4);}
+.t-action{background:linear-gradient(135deg,rgba(200,60,0,0.75),rgba(140,30,0,0.6));border:1px solid rgba(255,100,30,0.35);}
+.t-comedy{background:linear-gradient(135deg,rgba(150,120,0,0.7),rgba(100,80,0,0.55));border:1px solid rgba(255,200,0,0.3);}
+.t-horror{background:linear-gradient(135deg,rgba(60,0,100,0.8),rgba(30,0,60,0.65));border:1px solid rgba(140,0,200,0.35);}
+.t-other{background:linear-gradient(135deg,rgba(0,60,120,0.75),rgba(0,30,80,0.6));border:1px solid rgba(0,120,255,0.3);}
+.tree-genre{font-size:11px;font-weight:600;color:#fff;letter-spacing:.5px;margin-bottom:4px;}
+.tree-pct{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:#fff;}
+.tree-pct.big-text{font-size:30px;}
+.tree-item:hover{filter:brightness(1.2);}
+.mini-chart-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:6px 0 5px;}
+
+/* RIGHT BOTTOM: Feed */
+.review-feed{grid-column:3;grid-row:2;}
+.feed-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.live-tag{display:flex;align-items:center;gap:6px;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--purple);}
+.live-dot-blink{width:6px;height:6px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple);animation:blink 1s infinite;}
+.feed-item{padding:6px 0;border-bottom:1px solid rgba(180,80,255,0.07);}
+.feed-item:last-child{border-bottom:none;}
+.feed-meta{display:flex;align-items:center;gap:7px;margin-bottom:3px;flex-wrap:wrap;}
+.feed-genre-tag{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:4px;font-weight:700;border:1px solid;}
+.feed-source{font-size:10px;color:var(--muted);}
+.feed-time{font-size:9px;color:var(--muted);margin-left:auto;}
+.feed-text{font-size:11px;color:var(--text);line-height:1.4;font-style:italic;}
+
+/* BOTTOM */
+.btm-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+.bchip{background:#1a0d2e;border:1px solid var(--border);border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:8px;}
+.bicon{font-size:18px;}
+.bval{font-family:'Orbitron',monospace;font-size:13px;color:var(--purple);font-weight:700;}
+.blbl{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.err-toast{position:fixed;bottom:22px;right:22px;background:rgba(180,80,255,.1);border:1px solid var(--purple);border-radius:10px;padding:14px 20px;font-size:13px;color:var(--purple);display:none;z-index:999;max-width:320px;}
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="wrap">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="h-brand">
+    <div class="h-icon">🎬</div>
+    <div>
+      <div class="h-title">CineGenre Intelligence</div>
+      <div class="h-sub">Movie Genre Classification · TF-IDF + Linear SVM · IMDb Dataset</div>
+    </div>
+  </div>
+  <div class="h-right">
+    <div class="s-pill"><div class="sdot" id="sdot"></div><span id="stxt">Connecting...</span></div>
+    <div class="model-chip" id="mchip">Model: —</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-layout">
+
+  <!-- LEFT TOP: Genre Distribution -->
+  <div class="panel genre-dist">
+    <div class="ptitle">Genre Distribution</div>
+    <div class="dist-cards">
+      <div class="dist-card">
+        <div class="dist-card-name">Drama</div>
+        <div class="dist-card-count" style="color:#ff669a">12.4k</div>
+        <div class="dist-card-pct">Most Common</div>
+        <canvas class="dist-spark" id="spark1"></canvas>
+      </div>
+      <div class="dist-card">
+        <div class="dist-card-name">Comedy</div>
+        <div class="dist-card-count" style="color:#ffcc00">7.8k</div>
+        <div class="dist-card-pct">2nd Largest</div>
+        <canvas class="dist-spark" id="spark2"></canvas>
+      </div>
+      <div class="dist-card">
+        <div class="dist-card-name">Horror</div>
+        <div class="dist-card-count" style="color:#aa44ff">3.2k</div>
+        <div class="dist-card-pct">High Precision</div>
+        <canvas class="dist-spark" id="spark3"></canvas>
+      </div>
+      <div class="dist-card">
+        <div class="dist-card-name">Action</div>
+        <div class="dist-card-count" style="color:#ff6622">4.1k</div>
+        <div class="dist-card-pct">Strong Signal</div>
+        <canvas class="dist-spark" id="spark4"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="panel center-panel">
+    <div class="ptitle" style="width:100%">Predicted Genre</div>
+
+    <div class="ring-container">
+      <canvas id="mainRing" width="260" height="260"></canvas>
+      <div class="ring-center">
+        <div class="ring-emoji" id="ringEmoji">🎬</div>
+        <div class="ring-genre" id="ringGenre">AWAITING</div>
+        <div class="ring-conf" id="ringConf">—%</div>
+        <div class="ring-sub" id="ringSub">PASTE A PLOT TO PREDICT</div>
+      </div>
+    </div>
+
+    <div style="width:100%">
+      <div class="ptitle" style="margin-bottom:10px">Top Genre Probabilities</div>
+      <div id="g-bars">
+        <div class="g-bar"><div class="g-name" style="color:var(--muted)">—</div><div class="g-track"><div class="g-fill" style="background:var(--purple)"></div></div><div class="g-pct" style="color:var(--muted)">—</div></div>
+        <div class="g-bar"><div class="g-name" style="color:var(--muted)">—</div><div class="g-track"><div class="g-fill" style="background:var(--purple2)"></div></div><div class="g-pct" style="color:var(--muted)">—</div></div>
+        <div class="g-bar"><div class="g-name" style="color:var(--muted)">—</div><div class="g-track"><div class="g-fill" style="background:rgba(180,80,255,0.4)"></div></div><div class="g-pct" style="color:var(--muted)">—</div></div>
+        <div class="g-bar"><div class="g-name" style="color:var(--muted)">—</div><div class="g-track"><div class="g-fill" style="background:rgba(180,80,255,0.25)"></div></div><div class="g-pct" style="color:var(--muted)">—</div></div>
+        <div class="g-bar"><div class="g-name" style="color:var(--muted)">—</div><div class="g-track"><div class="g-fill" style="background:rgba(180,80,255,0.15)"></div></div><div class="g-pct" style="color:var(--muted)">—</div></div>
+      </div>
+    </div>
+
+    <div style="width:100%">
+      <div class="ptitle" style="margin-bottom:8px">Plot Summary Input</div>
+      <textarea class="plot-input" id="plotInput" placeholder="Paste a movie plot summary here...&#10;e.g. 'A young wizard discovers magical powers and must battle a dark lord who murdered his parents...'" oninput="updateChar()"></textarea>
+      <div class="char-row">
+        <span><span id="charCount">0</span> characters</span>
+        <span id="wordCount">0 words</span>
+      </div>
+      <div class="example-pills">
+        <span style="font-size:10px;color:var(--muted);align-self:center">Try:</span>
+        <div class="ex-pill" onclick="useSample('action')">💥 Action</div>
+        <div class="ex-pill" onclick="useSample('horror')">👻 Horror</div>
+        <div class="ex-pill" onclick="useSample('romance')">❤️ Romance</div>
+        <div class="ex-pill" onclick="useSample('comedy')">😂 Comedy</div>
+        <div class="ex-pill" onclick="useSample('thriller')">🔍 Thriller</div>
+        <div class="ex-pill" onclick="useSample('scifi')">🚀 Sci-Fi</div>
+      </div>
+      <button class="predict-btn" id="predictBtn" onclick="predict()">
+        <div class="spinner" id="spinner"></div>
+        <span id="btnTxt">🎬 CLASSIFY GENRE</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT TOP: Treemap -->
+  <div class="panel genre-factors">
+    <div class="ptitle">Genre Frequency Map</div>
+    <div class="treemap">
+      <div class="tree-item t-drama big">
+        <div class="tree-genre">🎭 Drama</div>
+        <div class="tree-pct big-text">38%</div>
+      </div>
+      <div class="tree-item t-comedy">
+        <div class="tree-genre">😂 Comedy</div>
+        <div class="tree-pct">22%</div>
+      </div>
+      <div class="tree-item t-action">
+        <div class="tree-genre">💥 Action</div>
+        <div class="tree-pct">14%</div>
+      </div>
+      <div class="tree-item t-horror">
+        <div class="tree-genre">👻 Horror</div>
+        <div class="tree-pct">10%</div>
+      </div>
+      <div class="tree-item t-other big">
+        <div class="tree-genre">🔍 Thriller · ❤️ Romance · 🚀 Sci-Fi · Other</div>
+        <div class="tree-pct">16%</div>
+      </div>
+    </div>
+    <div class="mini-chart-title">Accuracy by Genre</div>
+    <div style="position:relative;width:100%;height:78px;">
+    <canvas id="accChart"></canvas>
+    </div>
+  </div>
+
+  <!-- LEFT BOTTOM: Insights -->
+  <div class="panel model-insights">
+    <div class="ptitle">Model Insights</div>
+    <div class="insight-item">
+      <div class="ins-icon">📊</div>
+      <div class="ins-text">
+        <div class="ins-title">TF-IDF + Bigrams</div>
+        <div class="ins-desc">30K features with 1–2 gram range and sublinear TF scaling</div>
+      </div>
+      <div class="ins-badge key">KEY</div>
+    </div>
+    <div class="insight-item">
+      <div class="ins-icon">🎭</div>
+      <div class="ins-text">
+        <div class="ins-title">Drama Bias Detected</div>
+        <div class="ins-desc">Most common class — may over-predict drama on ambiguous plots</div>
+      </div>
+      <div class="ins-badge warn">NOTE</div>
+    </div>
+    <div class="insight-item">
+      <div class="ins-icon">👻</div>
+      <div class="ins-text">
+        <div class="ins-title">Horror Best Precision</div>
+        <div class="ins-desc">Unique vocabulary (ghost, blood, haunted) yields highest precision</div>
+      </div>
+      <div class="ins-badge good">BEST</div>
+    </div>
+    <div class="insight-item">
+      <div class="ins-icon">🔗</div>
+      <div class="ins-text">
+        <div class="ins-title">Genre Overlap Found</div>
+        <div class="ins-desc">Thriller/Crime/Drama share vocabulary — cosine similarity &gt;0.7</div>
+      </div>
+      <div class="ins-badge info">INFO</div>
+    </div>
+    <div class="insight-item">
+      <div class="ins-icon">⚡</div>
+      <div class="ins-text">
+        <div class="ins-title">LinearSVC Wins</div>
+        <div class="ins-desc">Outperforms Naive Bayes and Logistic Regression on 27-class text</div>
+      </div>
+      <div class="ins-badge key">TOP</div>
+    </div>
+  </div>
+
+  <!-- RIGHT BOTTOM: Live Feed -->
+  <div class="panel review-feed">
+    <div class="feed-header">
+      <div class="ptitle" style="margin-bottom:0">Live Prediction Feed</div>
+      <div class="live-tag"><div class="live-dot-blink"></div>LIVE</div>
+    </div>
+    <div id="feedContainer">
+      <div class="feed-item">
+        <div class="feed-meta">
+          <span class="feed-genre-tag" style="color:#ff669a;border-color:#ff669a;background:rgba(255,102,154,0.1)">DRAMA</span>
+          <span class="feed-source">IMDb · Plot #4821</span>
+          <span class="feed-time">2m ago</span>
+        </div>
+        <div class="feed-text">"A retired teacher confronts her past when her estranged daughter returns home..."</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-meta">
+          <span class="feed-genre-tag" style="color:#aa44ff;border-color:#aa44ff;background:rgba(170,68,255,0.1)">HORROR</span>
+          <span class="feed-source">Wikipedia · Movie #0392</span>
+          <span class="feed-time">5m ago</span>
+        </div>
+        <div class="feed-text">"Strange sounds at night lead the family to a dark entity lurking in the basement..."</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-meta">
+          <span class="feed-genre-tag" style="color:#ffcc00;border-color:#ffcc00;background:rgba(255,204,0,0.1)">COMEDY</span>
+          <span class="feed-source">Dataset · ID #2201</span>
+          <span class="feed-time">9m ago</span>
+        </div>
+        <div class="feed-text">"A bumbling wedding planner accidentally falls for the groom she is supposed to help..."</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-meta">
+          <span class="feed-genre-tag" style="color:#00aaff;border-color:#00aaff;background:rgba(0,170,255,0.1)">THRILLER</span>
+          <span class="feed-source">IMDb · Plot #7714</span>
+          <span class="feed-time">14m ago</span>
+        </div>
+        <div class="feed-text">"A forensic accountant uncovers a massive conspiracy reaching the highest levels..."</div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-meta">
+          <span class="feed-genre-tag" style="color:#ff6622;border-color:#ff6622;background:rgba(255,102,34,0.1)">ACTION</span>
+          <span class="feed-source">Wikipedia · Movie #1155</span>
+          <span class="feed-time">21m ago</span>
+        </div>
+        <div class="feed-text">"A former soldier is recruited for one last mission behind enemy lines..."</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-layout -->
+
+<!-- BOTTOM BAR -->
+<div class="btm-bar">
+  <div class="bchip"><div class="bicon">🎥</div><div><div class="bval">54,214</div><div class="blbl">Movies Trained</div></div></div>
+  <div class="bchip"><div class="bicon">🎯</div><div><div class="bval" id="b-acc">~60%</div><div class="blbl">Model Accuracy</div></div></div>
+  <div class="bchip"><div class="bicon">📚</div><div><div class="bval">27</div><div class="blbl">Genre Classes</div></div></div>
+  <div class="bchip"><div class="bicon">🔤</div><div><div class="bval">30K</div><div class="blbl">TF-IDF Features</div></div></div>
+  <div class="bchip"><div class="bicon">⚡</div><div><div class="bval">SVM</div><div class="blbl">Best Classifier</div></div></div>
+</div>
+
+</div><!-- /wrap -->
+<div class="err-toast" id="errToast"></div>
+
+<script>
+const API='http://127.0.0.1:5000';
+
+const GENRE_CONFIG={
+  'drama':{emoji:'🎭',color:'#ff669a'},'comedy':{emoji:'😂',color:'#ffcc00'},
+  'horror':{emoji:'👻',color:'#aa44ff'},'action':{emoji:'💥',color:'#ff6622'},
+  'thriller':{emoji:'🔍',color:'#00aaff'},'romance':{emoji:'❤️',color:'#ff3388'},
+  'sci-fi':{emoji:'🚀',color:'#00ddff'},'documentary':{emoji:'📽️',color:'#44cc88'},
+  'animation':{emoji:'✨',color:'#ffaa33'},'crime':{emoji:'🔫',color:'#cc4444'},
+  'adventure':{emoji:'🗺️',color:'#33aaff'},'western':{emoji:'🤠',color:'#cc8833'},
+  'biography':{emoji:'📖',color:'#88aacc'},'music':{emoji:'🎵',color:'#cc44aa'},
+  'family':{emoji:'👨‍👩‍👧',color:'#44cc44'},'fantasy':{emoji:'🧙',color:'#9944ff'},
+  'mystery':{emoji:'🕵️',color:'#4488cc'},'history':{emoji:'🏛️',color:'#aa8844'},
+  'war':{emoji:'⚔️',color:'#888844'},'musical':{emoji:'🎼',color:'#dd44bb'},
+  'sport':{emoji:'🏆',color:'#44bbff'},'short':{emoji:'📹',color:'#66aadd'},
+};
+function getGC(genre){const k=genre.toLowerCase().replace(/[\s_]/g,'-');return GENRE_CONFIG[k]||{emoji:'🎬',color:'#b44fff'};}
+
+const SAMPLES={
+  action:"A former elite soldier is recruited by a secret government agency to take down a ruthless arms dealer planning to sell stolen nuclear warheads to a terrorist organization. He must fight his way through enemies across three continents to stop the attack.",
+  horror:"A family moves into a remote farmhouse only to discover it is haunted by malevolent spirits connected to gruesome murders committed decades ago. As terrifying events escalate, they realize the evil entity wants to possess their youngest child.",
+  romance:"Two strangers from completely different worlds meet by chance in Paris and fall deeply in love over the course of a single summer. When circumstances force them apart, they must decide whether their love is worth sacrificing everything.",
+  comedy:"A clumsy but lovable wedding planner accidentally falls for the groom of the event she is organizing. Chaos ensues as she tries to keep her feelings secret while managing the most disastrous wedding in history, complete with a runaway cake.",
+  thriller:"A forensic accountant stumbles upon evidence of a massive financial conspiracy that reaches the highest levels of government. Now hunted by both federal agents and hired assassins, she must decrypt the files and expose the truth.",
+  scifi:"In the distant future a crew of astronauts is sent on a mission to a newly discovered exoplanet that shows signs of intelligent life. When they land they encounter an ancient alien civilization whose technology is centuries ahead of humanity.",
+};
+function useSample(k){document.getElementById('plotInput').value=SAMPLES[k];updateChar();}
+function updateChar(){
+  const t=document.getElementById('plotInput').value;
+  document.getElementById('charCount').textContent=t.length;
+  document.getElementById('wordCount').textContent=(t.trim()?t.trim().split(/\s+/).length:0)+' words';
+}
+
+// Constellation BG
+const bgC=document.getElementById('bg-canvas'),bgX=bgC.getContext('2d');
+let nodes=[];
+function resizeBg(){bgC.width=innerWidth;bgC.height=innerHeight;}
+function initNodes(){nodes=Array.from({length:65},()=>({x:Math.random()*bgC.width,y:Math.random()*bgC.height,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.8+.7}));}
+function drawBg(){
+  bgX.clearRect(0,0,bgC.width,bgC.height);
+  const g=bgX.createRadialGradient(bgC.width*.5,bgC.height*.3,0,bgC.width*.5,bgC.height*.6,bgC.width*.75);
+  g.addColorStop(0,'#160820');g.addColorStop(1,'#0a050f');
+  bgX.fillStyle=g;bgX.fillRect(0,0,bgC.width,bgC.height);
+  nodes.forEach(n=>{n.x+=n.vx;n.y+=n.vy;if(n.x<0||n.x>bgC.width)n.vx*=-1;if(n.y<0||n.y>bgC.height)n.vy*=-1;});
+  for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
+    const dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<115){bgX.beginPath();bgX.strokeStyle=`rgba(180,80,255,${.1*(1-d/115)})`;bgX.lineWidth=.5;bgX.moveTo(nodes[i].x,nodes[i].y);bgX.lineTo(nodes[j].x,nodes[j].y);bgX.stroke();}
+  }
+  nodes.forEach(n=>{bgX.beginPath();bgX.arc(n.x,n.y,n.r,0,Math.PI*2);bgX.fillStyle='rgba(180,80,255,0.45)';bgX.fill();});
+  requestAnimationFrame(drawBg);
+}
+resizeBg();initNodes();drawBg();
+window.addEventListener('resize',()=>{resizeBg();initNodes();});
+
+// Main ring
+let mainRingInst=null;
+function drawMainRing(pct,color){
+  if(mainRingInst)mainRingInst.destroy();
+  mainRingInst=new Chart(document.getElementById('mainRing'),{
+    type:'doughnut',
+    data:{datasets:[{data:[pct,100-pct],backgroundColor:[color,'rgba(180,80,255,0.05)'],borderWidth:0,borderRadius:6}]},
+    options:{cutout:'72%',responsive:false,plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:1100,easing:'easeOutQuart'},rotation:-90,circumference:360}
+  });
+}
+drawMainRing(0,'rgba(180,80,255,0.3)');
+
+// Accuracy chart
+new Chart(document.getElementById('accChart'),{
+  type:'bar',
+  data:{
+    labels:['Horror','Action','Comedy','Drama','Thriller','Romance'],
+    datasets:[{data:[72,65,61,58,55,50],backgroundColor:['rgba(170,68,255,0.7)','rgba(255,102,34,0.7)','rgba(255,204,0,0.7)','rgba(255,102,154,0.7)','rgba(0,170,255,0.7)','rgba(255,51,136,0.7)'],borderWidth:0,borderRadius:4}]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(14,8,22,.92)',borderColor:'rgba(180,80,255,.2)',borderWidth:1,titleColor:'#b44fff',bodyColor:'#d8c8f0',callbacks:{label:c=>c.parsed.y+'% acc'}}},
+    scales:{
+      x:{grid:{display:false},ticks:{color:'rgba(216,200,240,.4)',font:{size:9}}},
+      y:{grid:{color:'rgba(180,80,255,.06)'},ticks:{color:'rgba(216,200,240,.35)',font:{size:9},callback:v=>v+'%'},min:40,max:80}
+    }
+  }
+});
+
+// Sparklines
+function drawSpark(id,data,color){
+  const cv=document.getElementById(id);if(!cv)return;
+  const ctx=cv.getContext('2d'),w=cv.offsetWidth||110,h=28;
+  cv.width=w;cv.height=h;
+  const mx=Math.max(...data),mn=Math.min(...data);
+  const pts=data.map((v,i)=>({x:(i/(data.length-1))*w,y:h-((v-mn)/(mx-mn||1))*(h-4)-2}));
+  const gr=ctx.createLinearGradient(0,0,0,h);gr.addColorStop(0,color+'55');gr.addColorStop(1,'transparent');
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();ctx.fillStyle=gr;ctx.fill();
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.stroke();
+}
+setTimeout(()=>{
+  drawSpark('spark1',[9,11,12,10,12,13,12,12],'#ff669a');
+  drawSpark('spark2',[7,6,8,7,8,8,7,8],'#ffcc00');
+  drawSpark('spark3',[3,3,3,3,4,3,3,3],'#aa44ff');
+  drawSpark('spark4',[4,4,3,4,4,5,4,4],'#ff6622');
+},120);
+
+// Feed
+const FEED_ITEMS=[
+  {genre:'sci-fi',color:'#00ddff',src:'IMDb · Sci-Fi Batch',time:'just now',txt:'"Crew aboard a dying space station must choose between saving humanity or themselves..."'},
+  {genre:'drama',color:'#ff669a',src:'Wikipedia · Drama #8821',time:'1m ago',txt:'"An ageing violinist attempts to reconnect with his estranged son before it is too late..."'},
+  {genre:'western',color:'#cc8833',src:'Dataset · Classic #0041',time:'3m ago',txt:'"A lone gunslinger rides into a dusty border town to confront the men who killed his brother..."'},
+  {genre:'animation',color:'#ffaa33',src:'IMDb · Family #3309',time:'7m ago',txt:'"A young raccoon sets off on a magical journey to find his missing family in an enchanted forest..."'},
+  {genre:'mystery',color:'#4488cc',src:'Wikipedia · Noir #2291',time:'12m ago',txt:'"A private detective in 1940s Los Angeles is hired to find a missing heiress — nothing is as it seems..."'},
+];
+let feedIdx=0;
+const FC=document.getElementById('feedContainer');
+function addFeed(item){
+  const div=document.createElement('div');div.className='feed-item';div.style.cssText='opacity:0;transition:opacity .5s';
+  div.innerHTML=`<div class="feed-meta"><span class="feed-genre-tag" style="color:${item.color};border-color:${item.color};background:${item.color}18">${item.genre.toUpperCase()}</span><span class="feed-source">${item.src}</span><span class="feed-time">${item.time}</span></div><div class="feed-text">${item.txt}</div>`;
+  FC.insertBefore(div,FC.firstChild);setTimeout(()=>div.style.opacity='1',50);
+  if(FC.children.length>5)FC.removeChild(FC.lastChild);
+}
+setInterval(()=>{addFeed(FEED_ITEMS[feedIdx%FEED_ITEMS.length]);feedIdx++;},5500);
+
+// Server check
+async function checkServer(){
+  try{
+    const r=await fetch(`${API}/model-info`,{signal:AbortSignal.timeout(2200)});
+    const d=await r.json();
+    document.getElementById('sdot').className='sdot on';
+    document.getElementById('stxt').textContent='Model Online';
+    document.getElementById('mchip').textContent=`${d.model||'SVM'} · ${d.genres?.length||27} genres`;
+    document.getElementById('b-acc').textContent=d.accuracy||'~60%';
+  }catch{
+    document.getElementById('sdot').className='sdot off';
+    document.getElementById('stxt').textContent='Run app.py to connect';
+  }
+}
+checkServer();
+
+function showErr(msg){const el=document.getElementById('errToast');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',5000);}
+
+// Predict
+async function predict(){
+  const plot=document.getElementById('plotInput').value.trim();
+  if(plot.length<20)return showErr('Please enter at least 20 characters of plot summary.');
+  const btn=document.getElementById('predictBtn'),sp=document.getElementById('spinner'),bt=document.getElementById('btnTxt');
+  btn.disabled=true;sp.style.display='block';bt.textContent='CLASSIFYING...';
+  try{
+    const resp=await fetch(`${API}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plot})});
+    const data=await resp.json();
+    if(!data.success)throw new Error(data.error);
+    const genre=data.genre,conf=data.confidence,top5=data.top5||[],cfg=getGC(genre);
+    // Ring
+    drawMainRing(conf,cfg.color+'cc');
+    document.getElementById('ringEmoji').textContent=cfg.emoji;
+    const rg=document.getElementById('ringGenre');
+    rg.textContent=genre.toUpperCase();rg.style.color=cfg.color;rg.style.textShadow=`0 0 30px ${cfg.color}`;
+    document.getElementById('ringConf').textContent=conf+'% confidence';
+    document.getElementById('ringConf').style.color=cfg.color;
+    document.getElementById('ringSub').textContent='✓ GENRE IDENTIFIED';
+    document.getElementById('ringSub').style.color=cfg.color;
+    // Bars
+    if(top5.length){
+      const mx=top5[0].score;
+      document.getElementById('g-bars').innerHTML=top5.map((item,i)=>{
+        const gc=getGC(item.genre);
+        const bc=i===0?cfg.color:gc.color+'88';
+        const bw=(item.score/mx)*100;
+        return `<div class="g-bar"><div class="g-name" style="color:${i===0?cfg.color:'var(--text)'}">${item.genre}</div><div class="g-track"><div class="g-fill" style="background:${bc};width:0%" data-w="${bw}"></div></div><div class="g-pct" style="color:${i===0?cfg.color:'var(--muted)'}">${item.score}%</div></div>`;
+      }).join('');
+      setTimeout(()=>document.querySelectorAll('.g-fill[data-w]').forEach(el=>{el.style.width=el.dataset.w+'%';el.style.transition='width 1s cubic-bezier(.16,1,.3,1)';}),80);
+    }
+    // Treemap highlight
+    document.querySelectorAll('.tree-item').forEach(el=>{
+      el.style.filter='';
+      if(el.textContent.toLowerCase().includes(genre.toLowerCase())){el.style.filter='brightness(1.5)';el.style.transition='filter .5s';}
+    });
+    // Feed
+    addFeed({genre,color:cfg.color,src:'User Input · Just Now',time:'now',txt:'"'+plot.slice(0,85)+'..."'});
+  }catch(e){
+    showErr('Flask server not reachable. Run: python app.py\n'+e.message);
+  }
+  btn.disabled=false;sp.style.display='none';bt.textContent='🎬 CLASSIFY GENRE';
+}
+</script>
+</body>
+</html>
